@@ -1,0 +1,304 @@
+---
+title: "HW1"
+format: html
+editor: visual
+---
+
+```{r}
+# Mapping rates data
+samples <- c("SRR11647686", "SRR11647689", "SRR11647692", 
+             "SRR11647696", "SRR11647699", "SRR11647702")
+
+mapping_rates <- c(96.67, 96.50, 96.91, 96.83, 96.86, 96.00)
+
+# Create dataframe
+df <- data.frame(Sample = samples, MappingRate = mapping_rates)
+
+# Plot
+library(ggplot2)
+
+ggplot(df, aes(x = Sample, y = MappingRate)) +
+  geom_bar(stat = "identity", fill = '#001C57') +
+  geom_text(aes(label = paste0(MappingRate, "%")), 
+            vjust = -0.5, size = 3) +
+  coord_cartesian(ylim = c(90, 100)) +
+  ylim(0, 100) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Mapping Rate per Sample",
+       x = "Sample",
+       y = "Mapping Rate (%)") +
+  guides(fill = "none")
+
+ggsave("mapping_rate_plot.png", width = 6, height = 4)
+```
+
+Clipping profile
+
+```{r}
+
+setwd("C:/Users/avgus/Desktop/Naujas aplankas/clipping_profile")
+
+library(gridExtra)
+library(ggplot2)
+
+pdf <- function(...) invisible(NULL)
+dev.off <- function(...) invisible(NULL)
+
+samples <- c("SRR11647686", "SRR11647689", "SRR11647692", 
+             "SRR11647696", "SRR11647699", "SRR11647702")
+
+all_plots <- list()
+
+for(s in samples){
+  source(paste0(s, ".clipping_profile.r"))
+  
+  # R1
+  r1_nonclip_pct <- r1_nonclip_count*100/(r1_clip_count + r1_nonclip_count)
+  df_r1 <- data.frame(position = read_pos, nonclip_pct = r1_nonclip_pct)
+  all_plots[[paste0(s, "_R1")]] <- ggplot(df_r1, aes(x = position, y = nonclip_pct)) +
+    geom_line(color = "blue") +
+    geom_point(color = "blue", size = 1) +
+    coord_cartesian(ylim = c(94, 100)) +
+    theme_classic() +
+    theme(plot.title = element_text(face = "bold")) +
+    labs(title = paste0(s, " R1"), x = "Position (read-1)", y = "Non-clipped %")
+  
+  # R2
+  r2_nonclip_pct <- r2_nonclip_count*100/(r2_clip_count + r2_nonclip_count)
+  df_r2 <- data.frame(position = read_pos, nonclip_pct = r2_nonclip_pct)
+  all_plots[[paste0(s, "_R2")]] <- ggplot(df_r2, aes(x = position, y = nonclip_pct)) +
+    geom_line(color = "blue") +
+    geom_point(color = "blue", size = 1) +
+    coord_cartesian(ylim = c(94, 100)) +
+    theme_classic() +
+    theme(plot.title = element_text(face = "bold")) +
+    labs(title = paste0(s, " R2"), x = "Position (read-2)", y = "Non-clipped %")
+}
+
+combined <- arrangeGrob(grobs = all_plots, nrow = 4, ncol = 3)
+ggsave("clipping_profile_all.png", combined, width = 15, height = 16, dpi = 300)
+
+
+```
+
+inner distance
+
+**Inner distance** = the gap between the two paired reads on the genome. Imagine your paired-end reads like this:
+
+Read1 ----\> \<---- Read2
+
+\[gap\]
+
+That gap in the middle is the inner distance — it represents the size of the RNA fragment that was sequenced.
+
+What the histogram shows:
+
+X axis — inner distance in base pairs (bp) Y axis — how many read pairs have that inner distance Red line — the distribution curve
+
+Think of it like this:
+
+Your RNA fragment gets sequenced from **both ends**:
+
+```         
+Original RNA fragment: |---------------------------------------|  Read 1 sequenced from left: |======>  Read 2 sequenced from right:                             <======|  The gap in the middle = inner distance:         |_________________|
+```
+
+**So inner distance is simply:**
+
+> *How much of the original RNA fragment is LEFT UNSEQUENCED in the middle*
+
+**Examples:**
+
+-   **Positive inner distance** = gap between reads, middle part not sequenced
+
+-   **Zero** = reads meet exactly in the middle
+
+-   **Negative inner distance** = reads overlap each other
+
+**Why does it matter?** It tells you about your **library fragment size** — how long the RNA pieces were when they went into sequencing. This is important because:
+
+-   Too short fragments = reads overlap = wasted sequencing
+
+-   Too long fragments = big gap = missing information in the middle
+
+-   Just right = reads cover the fragment efficiently
+
+For your samples the slightly negative value means your reads **just barely overlap** — which is actually fine and common!
+
+```{r}
+
+setwd("C:/Users/avgus/Desktop/Naujas aplankas/inner_distance")
+
+library(gridExtra)
+library(ggplot2)
+
+pdf <- function(...) invisible(NULL)
+dev.off <- function(...) invisible(NULL)
+write <- function(...) invisible(NULL)
+
+samples <- c("SRR11647686", "SRR11647689", "SRR11647692", 
+             "SRR11647696", "SRR11647699", "SRR11647702")
+
+all_plots <- list()
+
+for(s in samples){
+  source(paste0(s, ".inner_distance_plot.r"))
+  
+  frag_mean <- round(mean(fragsize), 1)
+  frag_sd <- round(sd(fragsize), 1)
+  
+  df <- data.frame(fragsize = fragsize)
+  
+  all_plots[[s]] <- ggplot(df, aes(x = fragsize)) +
+    geom_histogram(aes(y = after_stat(density)), 
+                   bins = 100, fill = "white", color = "blue") +
+    geom_density(bw = 10, color = "red") +
+    theme_classic() +
+    theme(plot.title = element_text(face = "bold", size = 9)) +
+    labs(title = paste0(s, "\nMean=", frag_mean, "; SD=", frag_sd),
+         x = "mRNA insert size (bp)",
+         y = "Density")
+}
+
+combined <- arrangeGrob(grobs = all_plots, nrow = 2, ncol = 3)
+ggsave("inner_distance_all.png", combined, width = 15, height = 8, dpi = 300)
+
+```
+
+junctions
+
+**1. `splice_junction.pdf`** — shows junction types:
+
+Known junctions = already annotated in the genome Novel junctions = new, not previously annotated Partial novel = one side known, one side new
+
+-   High % known junctions = ✅ good, reads are mapping to real splice sites
+-   High % novel = could be interesting biology OR mapping errors
+
+**2. `splice_events.pdf`** — shows splicing event types:
+
+SE = Skipped exon (most common) RI = Retained intron A3 = Alternative 3' splice site A5 = Alternative 5' splice site MXE = Mutually exclusive exons
+
+```{r}
+
+setwd("C:/Users/avgus/Desktop/Naujas aplankas/junctions")
+
+library(gridExtra)
+library(ggplot2)
+
+pdf <- function(...) invisible(NULL)
+dev.off <- function(...) invisible(NULL)
+
+samples <- c("SRR11647686", "SRR11647689", "SRR11647692", 
+             "SRR11647696", "SRR11647699", "SRR11647702")
+
+events_plots <- list()
+junction_plots <- list()
+
+for(s in samples){
+  source(paste0(s, ".junction_plot.r"))
+  
+  # Splice events
+  events_df <- data.frame(
+    category = c("partial_novel", "complete_novel", "known"),
+    value = events
+  )
+  events_df$label <- paste0(events_df$category, "\n", round(events_df$value, 1), "%")
+  
+  events_plots[[s]] <- ggplot(events_df, aes(x = "", y = value, fill = category)) +
+    geom_bar(stat = "identity", width = 1) +
+    coord_polar("y", start = 0) +
+    geom_text(aes(label = label), 
+              position = position_stack(vjust = 0.5), size = 3) +
+    scale_fill_manual(values = c("partial_novel" = "#E74C3C", 
+                                  "complete_novel" = "#2ECC71", 
+                                  "known" = "#3498DB")) +
+    theme_void() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 9),
+          legend.position = "none") +
+    labs(title = paste0(s, "\nSplice Events"))
+  
+  # Splice junctions
+  junction_df <- data.frame(
+    category = c("partial_novel", "complete_novel", "known"),
+    value = junction
+  )
+  junction_df$label <- paste0(round(junction_df$value, 1), "%")
+  
+  junction_plots[[s]] <- ggplot(junction_df, aes(x = "", y = value, fill = category)) +
+    geom_bar(stat = "identity", width = 1) +
+    coord_polar("y", start = 0) +
+    geom_text(aes(label = label), 
+              position = position_stack(vjust = 0.5), size = 3) +
+    scale_fill_manual(values = c("partial_novel" = "#E74C3C", 
+                                  "complete_novel" = "#2ECC71", 
+                                  "known" = "#3498DB")) +
+    theme_void() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 9),
+          legend.position = "none") +
+    labs(title = paste0(s, "\nSplice Junctions"))
+}
+
+combined_events <- arrangeGrob(grobs = events_plots, nrow = 2, ncol = 3)
+ggsave("splice_events_all.png", combined_events, width = 15, height = 8, dpi = 300)
+
+combined_junction <- arrangeGrob(grobs = junction_plots, nrow = 2, ncol = 3)
+ggsave("splice_junction_all.png", combined_junction, width = 15, height = 8, dpi = 300)
+
+```
+
+FEATURE COUNTS
+
+```{r}
+setwd("C:/Users/avgus/Desktop/Naujas aplankas/feature_counts")
+
+library(ggplot2)
+
+samples <- c("SRR11647686", "SRR11647689", "SRR11647692", 
+             "SRR11647696", "SRR11647699", "SRR11647702")
+
+# Data from your summary
+assigned        <- c(12963412, 15473607, 15609816, 15480807, 12839027, 13831651)
+unmapped        <- c(228574, 274499, 183042, 206135, 149000, 255753)
+multimapping    <- c(2268070, 2763639, 2363175, 1881154, 1358358, 2432250)
+no_features     <- c(3206581, 2159798, 2614690, 2005150, 2681209, 1722699)
+ambiguity       <- c(1057408, 1218044, 1236647, 1090112, 808639, 1350338)
+
+# Create dataframe
+df <- data.frame(
+  Sample = rep(samples, 5),
+  Category = rep(c("Assigned", "Unmapped", "MultiMapping", 
+                   "No Features", "Ambiguity"), each = 6),
+  Count = c(assigned, unmapped, multimapping, no_features, ambiguity)
+)
+
+# Calculate percentages
+df$Total <- rep(assigned + unmapped + multimapping + no_features + ambiguity, 5)
+df$Percentage <- df$Count / df$Total * 100
+
+# Plot
+ggplot(df, aes(x = Sample, y = Percentage, fill = Category)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = ifelse(Percentage > 3, paste0(round(Percentage, 1), "%"), "")),
+            position = position_stack(vjust = 0.5),
+            size = 3, color = "black", fontface = "bold") +
+  scale_fill_manual(values = c(
+    "Assigned"     = "#e89eb8",
+    "Unmapped"     = "#332932",
+    "MultiMapping" = "#bcbd22",
+    "No Features"  = "#efb7b5",
+    "Ambiguity"    = "#fcf7ed"
+  )) +
+  theme_classic(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.title = element_text(face = "bold")
+  ) +
+  labs(title = "featureCounts Assignment Rates",
+       x = "Sample",
+       y = "Percentage (%)",
+       fill = "Category")
+
+ggsave("featurecounts_assignment.png", width = 10, height = 6, dpi = 300)
+```
