@@ -116,16 +116,6 @@ Original RNA fragment: |---------------------------------------|  Read 1 sequenc
 
 -   **Negative inner distance** = reads overlap each other
 
-**Why does it matter?** It tells you about your **library fragment size** — how long the RNA pieces were when they went into sequencing. This is important because:
-
--   Too short fragments = reads overlap = wasted sequencing
-
--   Too long fragments = big gap = missing information in the middle
-
--   Just right = reads cover the fragment efficiently
-
-For your samples the slightly negative value means your reads **just barely overlap** — which is actually fine and common!
-
 ```{r}
 
 setwd("C:/Users/avgus/Desktop/Naujas aplankas/inner_distance")
@@ -170,9 +160,11 @@ junctions
 
 **1. `splice_junction.pdf`** — shows junction types:
 
-Known junctions = already annotated in the genome Novel junctions = new, not previously annotated Partial novel = one side known, one side new
+Known junctions = already annotated in the genome 
+Novel junctions = new, not previously annotated 
+Partial novel = one side known, one side new
 
--   High % known junctions = ✅ good, reads are mapping to real splice sites
+-   High % known junctions = good, reads are mapping to real splice sites
 -   High % novel = could be interesting biology OR mapping errors
 
 **2. `splice_events.pdf`** — shows splicing event types:
